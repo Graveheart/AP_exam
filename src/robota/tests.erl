@@ -95,16 +95,14 @@ test_status_unavailable() ->
   io:format("Test passed ~n").
 
 make_student_submission(RoboTA) ->
-    Submission = [{"Question 1.1", 55}, {"Question 1.2", 0}],
-    io:format("RoboTA: ~p~n",[RoboTA]),
+    Submission = [{"Question 1.1", 5}, {"Question 1.2", 30}],
     Ref = robota:grade(RoboTA, "Advanced programming", Submission, self()),
-    ok.
-    % receive
-    %     {reply, Ref, Response} ->
-    %         {ok, Response}
-    % after
-    %     3000 -> {error, timeout}
-    %     end.
+    receive
+        {final_result, Ref, Response} ->
+            io:format("Student received grades: ~p~n",[Response])
+    after
+        3000 -> {error, timeout}
+        end.
 
 test_grade() ->
   {ok, RoboTA} = robota:get_the_show_started(),
@@ -112,10 +110,9 @@ test_grade() ->
   {ok, AssHandler} = robota:new(RoboTA, Name),
   Label1 = "Question 1.1",
   Label2 = "Question 1.2",
-  robota:add_part(AssHandler, Label1, abraham),
-  robota:add_part(AssHandler, Label2, abraham),
+  robota:add_part(AssHandler, Label1, {mikkel, 5}),
+  robota:add_part(AssHandler, Label2, niels),
   robota:available(AssHandler),
-  Submission = [{Label1, 1}, {Label2, 2}],
   Response = make_student_submission(RoboTA),
   ?assertMatch(ok, Response),
   io:format("Test passed ~n").

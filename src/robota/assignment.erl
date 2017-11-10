@@ -3,10 +3,10 @@
 
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, code_change/3, terminate/2]).
 
--record(state, {parts, part_graders, status, working_graders}).
+-record(state, {parts, part_graders, status, submission_graders, submission_refs, labeled_results}).
 
 init(Args) ->
-    S = #state{parts=[], part_graders=#{}, status=unavailable, working_graders=[]},
+    S = #state{parts=[], part_graders=#{}, status=unavailable, submission_graders=#{}, submission_refs=#{}, labeled_results=#{}},
     {ok, S}.
 
 handle_cast(Msg, Env) ->
@@ -19,16 +19,22 @@ handle_cast(Msg, Env) ->
                     S = Env#state{parts = lists:delete({Label, Grader}, Parts)},
                     {noreply, S}
             end;
-        {grade, Submission, Pid} ->
+        {grade, Submission, Pid, Ref} ->
             PartGraders = Env#state.part_graders,
             List = maps:to_list(PartGraders),
-            lists:foreach(fun({_, GraderPid}) ->
-                io:format("Submission: ~p~n",[Submission]),
-                io:format("Pid: ~p~n",[Pid]),
-                gen_server:cast(GraderPid, {grade, Submission, Pid})
-            end, List),
             S = Env#state{status=available},
-            {noreply, ok, S};
+            try lists:foreach(fun({_, GraderPid}) ->
+                    gen_server:cast(GraderPid, {grade, Submission, Pid})
+                end, List)
+            catch
+                _:Reason ->
+                    % From ! {Ref, {error, Throw}},
+                    Pid ! {error, Reason},
+                    {noreply, Env}
+            end,
+            NEWSR = maps:put(Pid, Ref, Env#state.submission_refs),
+            NewS = S#state{status=available, submission_refs=NEWSR},
+            {noreply, NewS};
         make_unavailable ->
             Parts = Env#state.parts,
             PartGraders = Env#state.part_graders,
@@ -82,14 +88,14 @@ handle_call(Msg, From, Env) ->
                         State = {Expect, Arg};
                     {mikkel, Expect} ->
                         GraderModule = mikkel,
-                        State = {Expect};
+                        State = Expect;
                     _ ->
                         GraderModule = Grader,
                         State = {}
                 end,
                 case apply(GraderModule, setup, [State]) of
                     {ok, GraderState} ->
-                        {ok, _} = gen_server:start(grader, {Label, GraderModule, self()}, [GraderState]);
+                        gen_server:start(grader, {Label, GraderModule, self(), GraderState}, []);
                     _ ->
                         throw(wrong_state)
                 end
@@ -135,20 +141,33 @@ handle_call(Msg, From, Env) ->
         get_status ->
             Status = Env#state.status,
             Parts = Env#state.parts,
-            io:format("GET STATUS: ~p~n",[{Status, Parts}]),
             {reply, {Status, Parts}, Env}
     end.
 
 handle_info(Msg, Env) ->
     case Msg of
-        {grader_started, Label, GraderPid}->
+        {grader_started, Label, GraderPid} ->
             PartGraders = Env#state.part_graders,
             S = Env#state{part_graders = PartGraders#{Label=> GraderPid}},
             {noreply, S};
-        {grader_stopped, Label, GraderPid}->
+        {grader_stopped, Label, GraderPid} ->
             PartGraders = Env#state.part_graders,
             S = Env#state{part_graders = maps:remove(Label, PartGraders)},
             {noreply, S};
+        % {grading_started, GraderPid}
+        {grading_finished, Label, Result, StudentPid} ->
+            LabeledResults = Env#state.labeled_results,
+            Parts = Env#state.parts,
+            NewStudentResults = maps:get(StudentPid, LabeledResults, [])++ [{Label, Result}],
+            NewLR = maps:put(StudentPid, NewStudentResults, LabeledResults),
+            S = Env#state{labeled_results = NewLR},
+            if (length(Parts) == length(NewStudentResults)) ->
+                SubmissionRef = maps:get(StudentPid, Env#state.submission_refs),
+                StudentPid ! {final_result, SubmissionRef, NewStudentResults},
+                {noreply, S};
+                true ->
+                    {noreply, S}
+            end;
         _ ->
             {noreply, Env}
     end.

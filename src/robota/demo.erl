@@ -14,18 +14,17 @@ demo() ->
   spawn(fun() -> student_submission(RoboTA) end),
   ok.
 
+inc_10(Arg) ->
+    Arg+10.
+
 student_submission(RoboTA) ->
     Ref = make_ref(),
-    % ProcessRef = erlang:monitor(process, Server),
-    Submission = [{"Question 1.1", 55}, {"Question 1.2", 0}],
-    % , {"Question 2.1", 94}, {"Question 2.2", 30}
-    io:format("RoboTA: ~p~n",[RoboTA]),
+
+    Submission = [{"Question 1.1", 55}, {"Question 1.2", 0}, {"Question 2.1", 94}, {"Question 2.2", fun inc_10/1}],
     Ref = robota:grade(RoboTA, "Advanced programming", Submission, self()),
     receive
-        {reply, Ref, Response} ->
-            {ok, Response}
-        % {'DOWN', Ref, process, ProcessRef, Reason} ->
-        %     {error, Reason}
+        {final_result, Ref, Response} ->
+            io:format("Student received grades: ~p~n",[Response])
     after
         3000 -> {error, timeout}
         end.

@@ -5,8 +5,8 @@
 setup(State) ->
     {ok, State}.
 
-grade(State, {_, Answer}) ->
-    failed.
+grade(_, _) ->
+    {ok, failed}.
 
 unload(_Salt) ->
     ok.

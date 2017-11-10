@@ -38,7 +38,9 @@ status(AssHandler) ->
     gen_server:call(RoboTA, {status, AssHandlerPid}).
 
 grade(RoboTA, Name, Submission, Pid) ->
-    gen_server:cast(RoboTA, {grade, Name, Submission, Pid}).
+    Ref = make_ref(),
+    gen_server:cast(RoboTA, {grade, Name, Submission, Pid, Ref}),
+    Ref.
 
 %% Callback Functions
 
@@ -121,12 +123,11 @@ handle_cast(Msg, Env) ->
                 true ->
                     {noreply, Env}
             end;
-        {grade, Name, Submission, Pid} ->
+        {grade, Name, Submission, Pid, Ref} ->
             Assignments = Env#state.assignments,
             case proplists:get_value(Name, Assignments) of
                 AssHandlerPid ->
-                    debug(AssHandlerPid),
-                    gen_server:cast(AssHandlerPid, {grade, Submission, Pid}),
+                    gen_server:cast(AssHandlerPid, {grade, Submission, Pid, Ref}),
                     {noreply, Env}
             end;
 		{env_change, AssHandlerPid, NewState} ->

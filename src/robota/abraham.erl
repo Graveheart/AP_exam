@@ -6,7 +6,7 @@ setup(State) ->
     {ok, State}.
 
 grade(_, _) ->
-    looks_good.
+    {ok, looks_good}.
 
 unload(_Salt) ->
     ok.
