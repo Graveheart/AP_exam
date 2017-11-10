@@ -21,10 +21,12 @@ handle_cast(Msg, Env) ->
             end;
         {grade, Submission, Pid} ->
             PartGraders = Env#state.part_graders,
-            io:format("PartGraders: ~p~n",[PartGraders]),
-            lists:foreach(fun({_, Grader}) ->
-                gen_server:call(Grader, {grade, Submission, Pid})
-            end, PartGraders),
+            List = maps:to_list(PartGraders),
+            lists:foreach(fun({_, GraderPid}) ->
+                io:format("Submission: ~p~n",[Submission]),
+                io:format("Pid: ~p~n",[Pid]),
+                gen_server:cast(GraderPid, {grade, Submission, Pid})
+            end, List),
             S = Env#state{status=available},
             {noreply, ok, S};
         make_unavailable ->
@@ -60,22 +62,6 @@ handle_cast(Msg, Env) ->
                     {reply, {error, setup_error}, Env}
             end
     end.
-    % try apply(Module, action, [Req, State, state]) of
-    %     {new_state, Res, NewState} ->
-    %         gen_server:cast(Flamingo, {env_change, self(), NewState}),
-    %         From ! {Ref, {200, Res}},
-    %         {noreply, {Module, NewState}};
-    %     {no_change, Res} ->
-    %         From ! {Ref, {200, Res}},
-    %         {noreply, {Module, State}}
-    % catch
-    %     _:undef ->
-    %         From ! {Ref, {404, "Not found"}},
-    %         {noreply, {Module, State}};
-    %     _:Throw ->
-    %         From ! {Ref, {500, Throw}},
-    %         {noreply, {Module, State}}
-    % end.
 
 handle_call(Msg, From, Env) ->
     case Msg of

@@ -7,7 +7,9 @@ init(State) ->
     AssignmentHandler ! {grader_started, Label, self()},
     {ok, State}.
 
-handle_cast({grade, RoboTA, From, Ref, Req}, {Label, Module, AssignmentHandler}) ->
+handle_cast({grade, Submission, Pid}, {Label, Module, AssignmentHandler}) ->
+    io:format("STARTING GRADING: ~p~n",[Module]),
+    io:format("Submission: ~p~n",[Submission]),
     try apply(Module, grade, []) of
         Result ->
             io:format("GET Result: ~p~n",[Result])

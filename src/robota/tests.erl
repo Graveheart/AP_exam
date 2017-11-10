@@ -95,15 +95,16 @@ test_status_unavailable() ->
   io:format("Test passed ~n").
 
 make_student_submission(RoboTA) ->
-    Ref = make_ref(),
     Submission = [{"Question 1.1", 55}, {"Question 1.2", 0}],
+    io:format("RoboTA: ~p~n",[RoboTA]),
     Ref = robota:grade(RoboTA, "Advanced programming", Submission, self()),
-    receive
-        {reply, Ref, Response} ->
-            {ok, Response}
-    after
-        3000 -> {error, timeout}
-        end.
+    ok.
+    % receive
+    %     {reply, Ref, Response} ->
+    %         {ok, Response}
+    % after
+    %     3000 -> {error, timeout}
+    %     end.
 
 test_grade() ->
   {ok, RoboTA} = robota:get_the_show_started(),

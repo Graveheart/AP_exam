@@ -38,7 +38,7 @@ status(AssHandler) ->
     gen_server:call(RoboTA, {status, AssHandlerPid}).
 
 grade(RoboTA, Name, Submission, Pid) ->
-    gen_server:call(RoboTA, {grade, Name, Submission, Pid}).
+    gen_server:cast(RoboTA, {grade, Name, Submission, Pid}).
 
 %% Callback Functions
 
@@ -48,19 +48,6 @@ init(Args) ->
 
 handle_info(Msg, {Global, Env}) ->
 	case Msg of
-		 {'DOWN', MonitorPid, process, RoboPid, _Reason} ->
-			io:format("Assignment handler down: ~p~n",[Msg]);
-			% RG = findByMonitor(MonitorPid, Env)
-			% try apply(RG#rg.module, initialise, [RG#rg.local_env_snapshot]) of
-			% 	{ok, State} ->
-			% 		{ok, ExecutorPid} = gen_server:start(action_executor, {RG#rg.module, State}, []),
-			% 		NewMonitorPid = erlang:monitor(process, ExecutorPid),
-			% 		{noreply, {Global, NEnv}};
-			% 	_ ->
-			% 		{noreply, {Global, Env}}
-			% catch
-			% 	_:_ ->
-			% 		{noreply, {Global, Env}}
 		 X ->
 			io:format("Unexpected message: ~p~n",[X]),
 			{noreply, {Global, Env}}
@@ -117,7 +104,10 @@ handle_call(Msg, From, Env) ->
             end;
         {status, AssHandlerPid} ->
             Response = gen_server:call(AssHandlerPid, get_status),
-            {reply, Response, Env}
+            {reply, Response, Env};
+        X ->
+			debug(X),
+			{reply, {error, wrong_request}, Env}
     end.
 
 handle_cast(Msg, Env) ->
@@ -132,10 +122,11 @@ handle_cast(Msg, Env) ->
                     {noreply, Env}
             end;
         {grade, Name, Submission, Pid} ->
-            AvailableAssignments = Env#state.available_assignments,
-            case lists:member(AssHandlerPid, AvailableAssignments) of
-                true ->
-                    gen_server:cast(AssHandlerPid, {grade, Name, Submission, Pid}),
+            Assignments = Env#state.assignments,
+            case proplists:get_value(Name, Assignments) of
+                AssHandlerPid ->
+                    debug(AssHandlerPid),
+                    gen_server:cast(AssHandlerPid, {grade, Submission, Pid}),
                     {noreply, Env}
             end;
 		{env_change, AssHandlerPid, NewState} ->

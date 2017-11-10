@@ -19,6 +19,7 @@ student_submission(RoboTA) ->
     % ProcessRef = erlang:monitor(process, Server),
     Submission = [{"Question 1.1", 55}, {"Question 1.2", 0}],
     % , {"Question 2.1", 94}, {"Question 2.2", 30}
+    io:format("RoboTA: ~p~n",[RoboTA]),
     Ref = robota:grade(RoboTA, "Advanced programming", Submission, self()),
     receive
         {reply, Ref, Response} ->
